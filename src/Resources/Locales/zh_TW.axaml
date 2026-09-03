@@ -382,6 +382,8 @@
   <x:String x:Key="Text.Diff.NoChange" xml:space="preserve">沒有變更或僅有換行字元差異</x:String>
   <x:String x:Key="Text.Diff.Old" xml:space="preserve">變更前</x:String>
   <x:String x:Key="Text.Diff.Prev" xml:space="preserve">上一個差異</x:String>
+  <x:String x:Key="Text.Diff.PreviewEncoding" xml:space="preserve">預覽編碼</x:String>
+  <x:String x:Key="Text.Diff.PreviewEncoding.Auto" xml:space="preserve">自動</x:String>
   <x:String x:Key="Text.Diff.SaveAsPatch" xml:space="preserve">另存為修補檔 (patch)</x:String>
   <x:String x:Key="Text.Diff.ShowHiddenSymbols" xml:space="preserve">顯示隱藏符號</x:String>
   <x:String x:Key="Text.Diff.SideBySide" xml:space="preserve">並排對比</x:String>
@@ -709,6 +711,8 @@
   <x:String x:Key="Text.Preferences.Git.DefaultCloneDir" xml:space="preserve">預設複製 (clone) 路徑</x:String>
   <x:String x:Key="Text.Preferences.Git.Email" xml:space="preserve">電子郵件</x:String>
   <x:String x:Key="Text.Preferences.Git.Email.Placeholder" xml:space="preserve">預設 Git 使用者電子郵件</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection" xml:space="preserve">編碼偵測 (預覽差異時猜測編碼，不再強制使用 UTF-8)</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection.Tip" xml:space="preserve">同時在差異預覽的工具列中新增編碼選擇</x:String>
   <x:String x:Key="Text.Preferences.Git.EnablePruneOnFetch" xml:space="preserve">提取後清理遠端已刪除分支</x:String>
   <x:String x:Key="Text.Preferences.Git.IgnoreCRAtEOLInDiff" xml:space="preserve">對比檔案時，預設忽略行末的 CR 變更</x:String>
   <x:String x:Key="Text.Preferences.Git.Invalid" xml:space="preserve">本軟體要求 Git 最低版本為 2.25.1</x:String>

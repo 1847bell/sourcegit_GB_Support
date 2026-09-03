@@ -38,9 +38,10 @@ namespace SourceGit.Commands
         private const int MAX_INLINE_CONTENT_LENGTH = 1024;
         private const int MAX_INLINE_CHUNKS_PER_LINE = 16;
 
-        public Diff(string repo, Models.DiffOption opt, int numContextLines, bool ignoreWhitespace, bool ignoreCRAtEOL)
+        public Diff(string repo, Models.DiffOption opt, int numContextLines, bool ignoreWhitespace, bool ignoreCRAtEOL, Models.TextEncoding encoding)
         {
             _result.TextDiff = new Models.TextDiff();
+            _encoding = encoding;
 
             WorkingDirectory = repo;
             Context = repo;
@@ -70,6 +71,9 @@ namespace SourceGit.Commands
 
                 if (ms.TryGetBuffer(out var buffer))
                 {
+                    _result.Encoding = _encoding.IsAuto ? DetectEncoding(buffer) : _encoding;
+                    _decoder = _result.Encoding.Decoder;
+
                     var start = buffer.Offset;
                     var end = buffer.Offset + buffer.Count;
                     while (start < end)
@@ -140,10 +144,43 @@ namespace SourceGit.Commands
             return _result;
         }
 
+        /// <summary>
+        ///     Guesses the encoding of the patch by looking at its chunk-body lines only, so that the
+        ///     paths and hashes in the headers do not weigh in.
+        /// </summary>
+        private static Models.TextEncoding DetectEncoding(ArraySegment<byte> buffer)
+        {
+            var detector = new Models.EncodingDetector();
+            var array = buffer.Array;
+            var end = buffer.Offset + buffer.Count;
+            var start = buffer.Offset;
+            var isInChunk = false;
+
+            while (start < end)
+            {
+                var lineEnd = Array.IndexOf(array, (byte)'\n', start, end - start);
+                if (lineEnd < 0)
+                    lineEnd = end;
+
+                var length = lineEnd - start;
+                if (length > 0)
+                {
+                    var marker = (char)array[start];
+                    if (isInChunk && marker is PREFIX_CONTEXT or PREFIX_DELETED or PREFIX_ADDED)
+                        detector.Feed(new ReadOnlySpan<byte>(array, start + 1, length - 1));
+                    else if (!isInChunk || marker != PREFIX_COMMAND)
+                        isInChunk = length > 2 && marker == '@' && array[start + 1] == '@';
+                }
+
+                start = lineEnd + 1;
+            }
+
+            return detector.GetResult();
+        }
+
         private void ParseLine(ArraySegment<byte> lineBytes)
         {
-            // Decode line bytes to UTF-8 string
-            var line = Encoding.UTF8.GetString(lineBytes.Array, lineBytes.Offset, lineBytes.Count);
+            var line = _decoder.GetString(lineBytes.Array, lineBytes.Offset, lineBytes.Count);
             if (line.Length == 0)
                 return;
 
@@ -365,6 +402,8 @@ namespace SourceGit.Commands
         private readonly Models.DiffResult _result = new Models.DiffResult();
         private readonly List<Models.TextDiffLine> _deleted = new List<Models.TextDiffLine>();
         private readonly List<Models.TextDiffLine> _added = new List<Models.TextDiffLine>();
+        private readonly Models.TextEncoding _encoding = null;
+        private Encoding _decoder = Encoding.UTF8;
         private Models.TextDiffLine _last = null;
         private int _oldLine = 0;
         private int _newLine = 0;

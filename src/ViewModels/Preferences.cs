@@ -241,6 +241,12 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _ignoreCRAtEOLInDiff, value);
         }
 
+        public bool EnableEncodingDetection
+        {
+            get => _enableEncodingDetection;
+            set => SetProperty(ref _enableEncodingDetection, value);
+        }
+
         public bool UseStashAndReapplyByDefault
         {
             get;
@@ -818,6 +824,7 @@ namespace SourceGit.ViewModels
         private bool _useSideBySideDiff = false;
         private bool _ignoreWhitespaceChangesInDiff = false;
         private bool _ignoreCRAtEOLInDiff = true;
+        private bool _enableEncodingDetection = false;
         private bool _useSyntaxHighlighting = false;
         private bool _enableDiffViewWordWrap = false;
         private bool _showHiddenSymbolsInDiffView = false;

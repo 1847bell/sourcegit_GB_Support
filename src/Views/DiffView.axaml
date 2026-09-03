@@ -204,6 +204,41 @@
               <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource Icons.Whitespace}"/>
             </ToggleButton>
 
+            <!-- Encoding Used To Preview The Diff -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0" Spacing="4">
+              <StackPanel.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="IsTextDiff" Mode="OneWay"/>
+                  <Binding Source="{x:Static vm:Preferences.Instance}" Path="EnableEncodingDetection" Mode="OneWay"/>
+                </MultiBinding>
+              </StackPanel.IsVisible>
+
+              <ComboBox Height="22"
+                        MinHeight="22"
+                        Padding="6,0"
+                        FontSize="11"
+                        VerticalAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        ItemsSource="{Binding Source={x:Static m:TextEncoding.Supported}}"
+                        SelectedItem="{Binding SelectedEncoding, Mode=TwoWay}"
+                        ToolTip.Tip="{DynamicResource Text.Diff.PreviewEncoding}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate DataType="m:TextEncoding">
+                    <Grid>
+                      <TextBlock Text="{DynamicResource Text.Diff.PreviewEncoding.Auto}" IsVisible="{Binding IsAuto}"/>
+                      <TextBlock Text="{Binding Name}" IsVisible="{Binding IsAuto, Converter={x:Static BoolConverters.Not}}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+
+              <TextBlock FontSize="11"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource Brush.FG2}"
+                         Text="{Binding UsedEncoding.Name, Mode=OneWay, StringFormat=({0})}"
+                         IsVisible="{Binding SelectedEncoding.IsAuto, Mode=OneWay}"/>
+            </StackPanel>
+
             <Button x:Name="BtnOpenExternalMergeTool"
                     Classes="icon_button"
                     Width="28"

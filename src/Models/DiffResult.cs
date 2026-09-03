@@ -110,6 +110,7 @@ namespace SourceGit.Models
         public string NewHash { get; set; } = string.Empty;
         public int OldMode { get; set; } = 0;
         public int NewMode { get; set; } = 0;
+        public TextEncoding Encoding { get; set; } = TextEncoding.UTF8;
         public TextDiff TextDiff { get; set; } = null;
         public LFSDiff LFSDiff { get; set; } = null;
     }

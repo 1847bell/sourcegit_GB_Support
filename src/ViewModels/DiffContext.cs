@@ -49,6 +49,29 @@ namespace SourceGit.ViewModels
             private set => SetProperty(ref _unifiedLines, value);
         }
 
+        /// <summary>
+        ///     The encoding picked by the user to preview this diff. `TextEncoding.Auto` lets it be
+        ///     guessed from the content.
+        /// </summary>
+        public Models.TextEncoding SelectedEncoding
+        {
+            get => _selectedEncoding;
+            set
+            {
+                if (value != null && SetProperty(ref _selectedEncoding, value))
+                    LoadContent();
+            }
+        }
+
+        /// <summary>
+        ///     The encoding the current content was actually decoded with.
+        /// </summary>
+        public Models.TextEncoding UsedEncoding
+        {
+            get => _usedEncoding;
+            private set => SetProperty(ref _usedEncoding, value);
+        }
+
         public DiffContext(string repo, Models.DiffOption option, DiffContext previous = null)
         {
             _repo = repo;
@@ -63,6 +86,8 @@ namespace SourceGit.ViewModels
                 _newMode = previous._newMode;
                 _unifiedLines = previous._unifiedLines;
                 _info = previous._info;
+                _selectedEncoding = previous._selectedEncoding;
+                _usedEncoding = previous._usedEncoding;
             }
 
             if (string.IsNullOrEmpty(_option.OrgPath) || _option.OrgPath == "/dev/null")
@@ -98,7 +123,8 @@ namespace SourceGit.ViewModels
             {
                 if ((pref.UseFullTextDiff && _info.UnifiedLines != _entireFileLines) ||
                     (!pref.UseFullTextDiff && _info.UnifiedLines == _entireFileLines) ||
-                    (pref.IgnoreWhitespaceChangesInDiff != _info.IgnoreWhitespace))
+                    (pref.IgnoreWhitespaceChangesInDiff != _info.IgnoreWhitespace) ||
+                    (GetRequestedEncoding() != _info.Encoding))
                 {
                     LoadContent();
                     return;
@@ -133,12 +159,13 @@ namespace SourceGit.ViewModels
                 var numLines = pref.UseFullTextDiff ? _entireFileLines : _unifiedLines;
                 var ignoreWhitespace = pref.IgnoreWhitespaceChangesInDiff;
                 var ignoreCRAtEOL = pref.IgnoreCRAtEOLInDiff;
+                var encoding = GetRequestedEncoding();
 
-                var latest = await new Commands.Diff(_repo, _option, numLines, ignoreWhitespace, ignoreCRAtEOL)
+                var latest = await new Commands.Diff(_repo, _option, numLines, ignoreWhitespace, ignoreCRAtEOL, encoding)
                     .ReadAsync()
                     .ConfigureAwait(false);
 
-                var info = new Info(_option, numLines, ignoreWhitespace, latest);
+                var info = new Info(_option, numLines, ignoreWhitespace, encoding, latest);
                 if (_info != null && info.IsSame(_info))
                     return;
 
@@ -182,6 +209,7 @@ namespace SourceGit.ViewModels
                 {
                     OldMode = latest.OldMode;
                     NewMode = latest.NewMode;
+                    UsedEncoding = latest.Encoding;
 
                     if (rs is Models.TextDiff cur)
                     {
@@ -341,19 +369,30 @@ namespace SourceGit.ViewModels
             return false;
         }
 
+        /// <summary>
+        ///     Encoding detection is opt-in. While it is disabled the diff is always decoded as UTF-8,
+        ///     no matter what was picked in the previewer before.
+        /// </summary>
+        private Models.TextEncoding GetRequestedEncoding()
+        {
+            return Preferences.Instance.EnableEncodingDetection ? _selectedEncoding : Models.TextEncoding.UTF8;
+        }
+
         private class Info
         {
             public string Argument { get; }
             public int UnifiedLines { get; }
             public bool IgnoreWhitespace { get; }
+            public Models.TextEncoding Encoding { get; }
             public string OldHash { get; }
             public string NewHash { get; }
 
-            public Info(Models.DiffOption option, int unifiedLines, bool ignoreWhitespace, Models.DiffResult result)
+            public Info(Models.DiffOption option, int unifiedLines, bool ignoreWhitespace, Models.TextEncoding encoding, Models.DiffResult result)
             {
                 Argument = option.ToString();
                 UnifiedLines = unifiedLines;
                 IgnoreWhitespace = ignoreWhitespace;
+                Encoding = encoding;
                 OldHash = result.OldHash;
                 NewHash = result.NewHash;
             }
@@ -363,6 +402,7 @@ namespace SourceGit.ViewModels
                 return Argument.Equals(other.Argument, StringComparison.Ordinal) &&
                     UnifiedLines == other.UnifiedLines &&
                     IgnoreWhitespace == other.IgnoreWhitespace &&
+                    ReferenceEquals(Encoding, other.Encoding) &&
                     OldHash.Equals(other.OldHash, StringComparison.Ordinal) &&
                     NewHash.Equals(other.NewHash, StringComparison.Ordinal);
             }
@@ -377,6 +417,8 @@ namespace SourceGit.ViewModels
         private bool _isTextDiff = false;
         private bool _isIgnoreWhitespaceVisible = true;
         private object _content = null;
+        private Models.TextEncoding _selectedEncoding = Models.TextEncoding.Auto;
+        private Models.TextEncoding _usedEncoding = null;
         private Info _info = null;
     }
 }

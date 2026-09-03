@@ -382,6 +382,8 @@
   <x:String x:Key="Text.Diff.NoChange" xml:space="preserve">没有变更或仅有换行符差异</x:String>
   <x:String x:Key="Text.Diff.Old" xml:space="preserve">变更前</x:String>
   <x:String x:Key="Text.Diff.Prev" xml:space="preserve">上一个差异</x:String>
+  <x:String x:Key="Text.Diff.PreviewEncoding" xml:space="preserve">预览编码</x:String>
+  <x:String x:Key="Text.Diff.PreviewEncoding.Auto" xml:space="preserve">自动</x:String>
   <x:String x:Key="Text.Diff.SaveAsPatch" xml:space="preserve">保存为补丁文件</x:String>
   <x:String x:Key="Text.Diff.ShowHiddenSymbols" xml:space="preserve">显示隐藏符号</x:String>
   <x:String x:Key="Text.Diff.SideBySide" xml:space="preserve">分列对比</x:String>
@@ -709,6 +711,8 @@
   <x:String x:Key="Text.Preferences.Git.DefaultCloneDir" xml:space="preserve">默认克隆路径</x:String>
   <x:String x:Key="Text.Preferences.Git.Email" xml:space="preserve">邮箱</x:String>
   <x:String x:Key="Text.Preferences.Git.Email.Placeholder" xml:space="preserve">默认GIT用户邮箱</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection" xml:space="preserve">编码探测 (预览差异时猜测编码，不再强制使用 UTF-8)</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection.Tip" xml:space="preserve">同时在差异预览的工具栏中增加编码选择</x:String>
   <x:String x:Key="Text.Preferences.Git.EnablePruneOnFetch" xml:space="preserve">拉取更新时启用修剪</x:String>
   <x:String x:Key="Text.Preferences.Git.IgnoreCRAtEOLInDiff" xml:space="preserve">对比文件时，默认忽略换行符变更</x:String>
   <x:String x:Key="Text.Preferences.Git.Invalid" xml:space="preserve">本软件要求GIT最低版本为2.25.1</x:String>
