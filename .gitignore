@@ -30,6 +30,9 @@ package.json
 package-lock.json
 
 
+# build/scripts release token config
+build/scripts/.release-env
+
 # Flatpak
 !build/resources/flatpak
 
