@@ -1,6 +1,7 @@
 # Release a locally-built SourceGit build to a GitHub release.
 #
-# Packages build/SourceGit (EXE + DLLs, PDBs stripped) into a zip, creates an
+# Packages build/SourceGit (EXE + DLLs, PDBs stripped) into a zip whose root is a
+# single `SourceGit/` folder (the same layout the CI packages use), creates an
 # annotated git tag v<version>, pushes it to origin, then creates/reuses the
 # GitHub release for that tag and uploads the zip as an asset.
 #
@@ -74,15 +75,19 @@ if (-not (Test-Path $x64Exe)) {
     Result 1
 }
 
-$tmpDir = Join-Path $env:TEMP ("sourcegit_pkg_" + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $tmpDir | Out-Null
+# The zip must keep the CI layout: `Compress-Archive -Path <dir>` stores that dir
+# itself as the single root entry, so the staged dir is named `SourceGit` to match
+# build/scripts/package.win.ps1 (which compresses build/SourceGit directly).
+$tmpRoot = Join-Path $env:TEMP ("sourcegit_pkg_" + [guid]::NewGuid().ToString('N'))
+$tmpDir = Join-Path $tmpRoot 'SourceGit'
+New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 try {
     Copy-Item (Join-Path $srcDir '*') $tmpDir -Recurse -Force
     Get-ChildItem $tmpDir -Filter *.pdb -Recurse | Remove-Item -Force
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
     Compress-Archive -Path $tmpDir -DestinationPath $zipPath -CompressionLevel Optimal
 } finally {
-    Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 Write-Host "Package: $zipPath ($zipSize MB)"
