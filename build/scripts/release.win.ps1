@@ -12,6 +12,12 @@
 #            credential stored for github.com (read via `git credential fill`).
 #            A GIT_TOKEN=... line in build/scripts/.release-env takes top priority
 #            (that file is git-ignored).
+#   SkipTagCheck
+#            reuses an existing tag even when it no longer points at HEAD, so only
+#            that release's asset gets refreshed. Use it when HEAD has moved on
+#            after the tag was cut: with it the tag is never created, moved or
+#            pushed, and the zip deliberately ships a later commit's sources
+#            under that tag.
 #
 # Examples
 #   ./release.win.ps1
@@ -19,6 +25,7 @@
 #   ./release.win.ps1 -Version 2026.20                            # override version
 #   ./release.win.ps1 -Token ghp_xxx -Proxy http://127.0.0.1:7890
 #   ./release.win.ps1 -Notes "Custom release body" -DryRun        # preview only
+#   ./release.win.ps1 -SkipTagCheck                               # refresh a release asset after HEAD moved on
 #
 # Network note: GitHub API calls (api.github.com) hit GitHub directly, not the
 # git proxy. If your network cannot reach api.github.com, pass -Proxy (the same
@@ -34,6 +41,7 @@ param(
     [string]$Notes,
     [switch]$Draft,
     [switch]$Prerelease,
+    [switch]$SkipTagCheck,
     [switch]$DryRun
 )
 
@@ -144,14 +152,20 @@ function Invoke-GhApi {
 $sha = (git -C $root rev-parse HEAD).Trim()
 # Peel annotated tags to their commit so we compare commit to commit.
 $localTagSha = git -C $root rev-parse -q --verify "refs/tags/$tag^{commit}" 2>$null
+# Set when -SkipTagCheck deliberately re-publishes a release whose tag sits behind HEAD.
+$reusingOlderTag = $false
 if (-not $localTagSha) {
     if (-not $DryRun) {
         git -C $root tag -a $tag $sha -m "Release $Version"
     }
     Write-Host "Set up local tag $tag -> $sha"
 } elseif ($localTagSha -ne $sha) {
-    Write-Error "Local tag $tag already points to $localTagSha (not HEAD $sha). Delete it or reset it first."
-    Result 1
+    if (-not $SkipTagCheck) {
+        Write-Error "Local tag $tag already points to $localTagSha (not HEAD $sha). Delete it or reset it first, or pass -SkipTagCheck to refresh that release's asset as is."
+        Result 1
+    }
+    $reusingOlderTag = $true
+    Write-Host "Reusing tag $tag -> $localTagSha (behind HEAD $sha); tag left untouched, only the release asset is refreshed"
 } else {
     Write-Host "Local tag $tag already up to date"
 }
@@ -160,7 +174,9 @@ if (-not $localTagSha) {
 # git will refuse to overwrite an existing remote tag pointing elsewhere, so we
 # just push and inspect the result. If the tag already exists and is identical,
 # git reports "everything up-to-date" which we treat as success.
-if (-not $DryRun) {
+if ($reusingOlderTag) {
+    Write-Host "Tag $tag is reused as is; not pushing"
+} elseif (-not $DryRun) {
     $push = git -C $root push origin "refs/tags/$tag" 2>&1
     $push | ForEach-Object { Write-Host "  $_" }
     $remoteTagSha = git -C $root ls-remote --tags origin "refs/tags/$tag" 2>$null | ForEach-Object { ($_ -split '\t')[0] }
