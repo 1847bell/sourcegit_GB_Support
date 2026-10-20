@@ -714,8 +714,8 @@
   <x:String x:Key="Text.Preferences.Git.DefaultCloneDir" xml:space="preserve">Default Clone Dir</x:String>
   <x:String x:Key="Text.Preferences.Git.Email" xml:space="preserve">User Email</x:String>
   <x:String x:Key="Text.Preferences.Git.Email.Placeholder" xml:space="preserve">Global git user email</x:String>
-  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection" xml:space="preserve">Detect the encoding of text diff instead of always using UTF-8</x:String>
-  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection.Tip" xml:space="preserve">Also adds an encoding selector to the toolbar of the diff previewer</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection" xml:space="preserve">Detect text encoding in diffs and the merge conflict editor</x:String>
+  <x:String x:Key="Text.Preferences.Git.EnableEncodingDetection.Tip" xml:space="preserve">Also adds an encoding selector to the diff preview toolbar. Resolved files keep their detected encoding.</x:String>
   <x:String x:Key="Text.Preferences.Git.EnablePruneOnFetch" xml:space="preserve">Prune dead branches after fetching</x:String>
   <x:String x:Key="Text.Preferences.Git.IgnoreCRAtEOLInDiff" xml:space="preserve">Ignore CR at end-of-line in text diff</x:String>
   <x:String x:Key="Text.Preferences.Git.Invalid" xml:space="preserve">Git (&gt;= 2.25.1) is required by this app</x:String>

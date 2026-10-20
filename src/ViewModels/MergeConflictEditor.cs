@@ -96,7 +96,24 @@ namespace SourceGit.ViewModels
             var workingCopyPath = Path.Combine(_repo.FullPath, _filePath);
             var workingCopyContent = string.Empty;
             if (File.Exists(workingCopyPath))
-                workingCopyContent = File.ReadAllText(workingCopyPath);
+            {
+                var bytes = File.ReadAllBytes(workingCopyPath);
+                if (Preferences.Instance.EnableEncodingDetection)
+                {
+                    var detector = new Models.EncodingDetector();
+                    detector.Feed(bytes);
+                    _encoding = detector.GetResult().Decoder;
+                }
+
+                // Keep BOM detection for Unicode files even when a legacy encoding was guessed.
+                using var reader = new StreamReader(new MemoryStream(bytes, false), _encoding, true);
+                workingCopyContent = reader.ReadToEnd();
+                _encoding = reader.CurrentEncoding;
+
+                // Preserve the original UTF-8 BOM instead of adding one to BOM-less files.
+                if (_encoding.CodePage == Encoding.UTF8.CodePage)
+                    _encoding = new UTF8Encoding(bytes.AsSpan().StartsWith(Encoding.UTF8.Preamble));
+            }
 
             if (workingCopyContent.IndexOf('\0', StringComparison.Ordinal) >= 0)
             {
@@ -197,7 +214,7 @@ namespace SourceGit.ViewModels
             {
                 // Write merged content to file
                 var fullPath = Path.Combine(_repo.FullPath, _filePath);
-                await File.WriteAllTextAsync(fullPath, builder.ToString());
+                await File.WriteAllTextAsync(fullPath, builder.ToString(), _encoding);
 
                 // Stage the file
                 var pathSpecFile = Path.GetTempFileName();
@@ -469,6 +486,7 @@ namespace SourceGit.ViewModels
 
         private readonly Repository _repo;
         private readonly string _filePath;
+        private readonly Encoding _encoding = new UTF8Encoding(false);
         private string _originalContent = string.Empty;
         private int _unsolvedCount = 0;
         private int _maxLineNumber = 0;
