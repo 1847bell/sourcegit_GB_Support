@@ -65,7 +65,11 @@ namespace SourceGit.ViewModels
         public bool IsCommitting
         {
             get => _isCommitting;
-            private set => SetProperty(ref _isCommitting, value);
+            private set
+            {
+                if (SetProperty(ref _isCommitting, value))
+                    _repo.NotifyIsSkippingOrAbortingMergeChanged();
+            }
         }
 
         public bool EnableSignOff
@@ -140,25 +144,51 @@ namespace SourceGit.ViewModels
         public List<Models.Change> Unstaged
         {
             get => _unstaged;
-            private set => SetProperty(ref _unstaged, value);
+            private set
+            {
+                if (SetProperty(ref _unstaged, value))
+                    OnPropertyChanged(nameof(UnstagedCountInfo));
+            }
         }
 
         public List<Models.Change> VisibleUnstaged
         {
             get => _visibleUnstaged;
-            private set => SetProperty(ref _visibleUnstaged, value);
+            private set
+            {
+                if (SetProperty(ref _visibleUnstaged, value))
+                    OnPropertyChanged(nameof(UnstagedCountInfo));
+            }
         }
 
         public List<Models.Change> Staged
         {
             get => _staged;
-            private set => SetProperty(ref _staged, value);
+            private set
+            {
+                if (SetProperty(ref _staged, value))
+                    OnPropertyChanged(nameof(StagedCountInfo));
+            }
         }
 
         public List<Models.Change> VisibleStaged
         {
             get => _visibleStaged;
-            private set => SetProperty(ref _visibleStaged, value);
+            private set
+            {
+                if (SetProperty(ref _visibleStaged, value))
+                    OnPropertyChanged(nameof(StagedCountInfo));
+            }
+        }
+
+        public string UnstagedCountInfo
+        {
+            get => string.IsNullOrEmpty(_filter) ? $"({_unstaged.Count})" : $"({_visibleUnstaged.Count}/{_unstaged.Count})";
+        }
+
+        public string StagedCountInfo
+        {
+            get => string.IsNullOrEmpty(_filter) ? $"({_staged.Count})" : $"({_visibleStaged.Count}/{_staged.Count})";
         }
 
         public ChangeSelection SelectedUnstaged
@@ -270,14 +300,16 @@ namespace SourceGit.ViewModels
             var visibleUnstaged = new List<Models.Change>();
             var selectedUnstaged = new List<Models.Change>();
             var noFilter = string.IsNullOrEmpty(_filter);
-            var hasConflict = false;
+            var conflicts = new List<Models.Change>();
             var canSwitchDirectly = true;
             foreach (var c in changes)
             {
                 if (c.WorkTree != Models.ChangeState.None)
                 {
                     unstaged.Add(c);
-                    hasConflict |= c.IsConflicted;
+
+                    if (c.IsConflicted)
+                        conflicts.Add(c);
 
                     if (noFilter || c.Path.Contains(_filter, StringComparison.OrdinalIgnoreCase))
                     {
@@ -312,15 +344,15 @@ namespace SourceGit.ViewModels
                 }
             }
 
-            if (selectedUnstaged.Count == 0 && selectedStaged.Count == 0 && hasConflict)
+            if (selectedUnstaged.Count == 0 && selectedStaged.Count == 0 && conflicts.Count > 0)
             {
-                var firstConflict = visibleUnstaged.Find(x => x.IsConflicted);
+                var firstConflict = FindFirstConflict(conflicts);
                 selectedUnstaged.Add(firstConflict);
             }
 
             _isLoadingData = true;
             _cached = changes;
-            HasUnsolvedConflicts = hasConflict;
+            HasUnsolvedConflicts = conflicts.Count > 0;
             CanSwitchBranchDirectly = canSwitchDirectly;
             VisibleUnstaged = visibleUnstaged;
             VisibleStaged = visibleStaged;
@@ -414,10 +446,10 @@ namespace SourceGit.ViewModels
                 _repo.ShowPopup(new Discard(_repo));
         }
 
-        public void Discard(List<Models.Change> changes)
+        public void Discard(List<Models.Change> changes, Models.Change next)
         {
             if (_repo.CanCreatePopup())
-                _repo.ShowPopup(new Discard(_repo, changes));
+                _repo.ShowPopup(new Discard(_repo, changes, next));
         }
 
         public void ClearFilter()
@@ -779,6 +811,12 @@ namespace SourceGit.ViewModels
             if (_inProgressContext != null && _inProgressContext.GetType() == oldType && !string.IsNullOrEmpty(_commitMessage))
                 return;
 
+            // The operation that filled the commit message ended outside SourceGit (for example, a
+            // rebase or merge finished/aborted from the terminal). Drop the stale message unless the
+            // user has edited it since it was loaded.
+            if (_inProgressContext == null && oldType != null && IsAutoLoadedCommitMessage())
+                CommitMessage = string.Empty;
+
             if (LoadCommitMessageFromFile(Path.Combine(_repo.GitDir, "MERGE_MSG")))
                 return;
 
@@ -788,7 +826,7 @@ namespace SourceGit.ViewModels
             if (LoadCommitMessageFromFile(Path.Combine(_repo.GitDir, "rebase-merge", "message")))
                 return;
 
-            CommitMessage = new Commands.QueryCommitFullMessage(_repo.FullPath, rebasing.StoppedAt.SHA).GetResult();
+            SetAutoLoadedCommitMessage(new Commands.QueryCommitFullMessage(_repo.FullPath, rebasing.StoppedAt.SHA).GetResult());
         }
 
         private bool LoadCommitMessageFromFile(string file)
@@ -800,8 +838,20 @@ namespace SourceGit.ViewModels
             if (string.IsNullOrEmpty(msg))
                 return false;
 
-            CommitMessage = msg;
+            SetAutoLoadedCommitMessage(msg);
             return true;
+        }
+
+        private void SetAutoLoadedCommitMessage(string msg)
+        {
+            _autoLoadedCommitMessage = msg;
+            CommitMessage = msg;
+        }
+
+        private bool IsAutoLoadedCommitMessage()
+        {
+            return !string.IsNullOrEmpty(_autoLoadedCommitMessage) &&
+                string.Equals(_autoLoadedCommitMessage, _commitMessage, StringComparison.Ordinal);
         }
 
         private void SetDetail(Models.Change change, bool isUnstaged)
@@ -833,6 +883,66 @@ namespace SourceGit.ViewModels
             return false;
         }
 
+        private Models.Change FindFirstConflict(List<Models.Change> conflicts)
+        {
+            if (conflicts.Count == 1 || Preferences.Instance.ChangeViewMode != Models.ChangeViewMode.Tree)
+                return conflicts[0];
+
+            var finder = (ChangeInTree l, ChangeInTree r) =>
+            {
+                var lDirs = l.PathSegments.Length - 1;
+                var rDirs = r.PathSegments.Length - 1;
+                if (lDirs == 0)
+                {
+                    if (rDirs == 0)
+                        return Models.NumericSort.Compare(l.PathSegments[0], r.PathSegments[0]) <= 0 ? l : r;
+                    else
+                        return r;
+                }
+                else if (rDirs == 0)
+                {
+                    return l;
+                }
+
+                var min = Math.Min(lDirs, rDirs);
+                for (var idx = 0; idx < min; idx++)
+                {
+                    var cmp = Models.NumericSort.Compare(l.PathSegments[idx], r.PathSegments[idx]);
+                    if (cmp < 0)
+                        return l;
+                    else if (cmp > 0)
+                        return r;
+                }
+
+                if (lDirs == rDirs)
+                    return Models.NumericSort.Compare(l.PathSegments[^1], r.PathSegments[^1]) <= 0 ? l : r;
+
+                return lDirs < rDirs ? r : l;
+            };
+
+            var collection = new List<ChangeInTree>();
+            foreach (var c in conflicts)
+                collection.Add(new ChangeInTree(c));
+
+            var first = collection[0];
+            for (var idx = 1; idx < collection.Count; idx++)
+                first = finder(first, collection[idx]);
+
+            return first.Change;
+        }
+
+        private class ChangeInTree
+        {
+            public Models.Change Change { get; set; }
+            public string[] PathSegments { get; set; }
+
+            public ChangeInTree(Models.Change change)
+            {
+                Change = change;
+                PathSegments = change.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            }
+        }
+
         private Repository _repo = null;
         private bool _isLoadingData = false;
         private bool _isStaging = false;
@@ -854,5 +964,6 @@ namespace SourceGit.ViewModels
 
         private bool _hasUnsolvedConflicts = false;
         private InProgressContext _inProgressContext = null;
+        private string _autoLoadedCommitMessage = null;
     }
 }
