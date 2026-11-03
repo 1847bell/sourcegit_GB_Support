@@ -1,0 +1,58 @@
+name: Encoding Detection Release
+on:
+  push:
+    branches: [feature/encoding-detection]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  package:
+    name: Build and package
+    uses: ./.github/workflows/ci.yml
+  draft:
+    name: Create release draft
+    needs: package
+    if: github.ref == 'refs/heads/feature/encoding-detection'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: package.*
+          path: packages
+          merge-multiple: true
+      - name: Create draft with packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          VERSION=$(cat VERSION)
+          TAG="encoding-detection-v${VERSION}-${RUN_NUMBER}"
+          printf '%s\n' \
+            "SourceGit ${VERSION} — encoding-detection" \
+            '' \
+            'Branch: feature/encoding-detection' \
+            "Commit: ${COMMIT}" \
+            '' \
+            'Changes:' \
+            "- Merge master (SourceGit ${VERSION}) into the encoding-detection feature branch." \
+            '- Automatic text encoding detection and manual encoding selection for diffs.' \
+            '- Detect and preserve text encoding in the merge conflict editor.' \
+            '' \
+            "Build: ${RUN_URL}" \
+            '' \
+            'Draft prerelease; review and publish manually.' > release-notes.md
+          gh release create "$TAG" packages/* \
+            --target "$COMMIT" \
+            --title "SourceGit ${VERSION} encoding-detection (build ${RUN_NUMBER})" \
+            --notes-file release-notes.md \
+            --draft \
+            --prerelease

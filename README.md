@@ -70,6 +70,8 @@
 
 You can download the latest stable from [Releases](https://github.com/sourcegit-scm/sourcegit/releases/latest) or download workflow artifacts from [GitHub Actions](https://github.com/sourcegit-scm/sourcegit/actions) to try this app based on latest commits.
 
+For this fork, pushes to `feature/encoding-detection` run the **Encoding Detection Release** workflow. It builds and packages Windows, macOS, and Linux for x64 and ARM64, then attaches the packages to a draft prerelease named `encoding-detection-v<VERSION>-<run number>`. Review the draft in this fork's [Releases](https://github.com/1847bell/sourcegit_GB_Support/releases) and publish it manually; the workflow never publishes it automatically.
+
 This software creates a folder, which is platform-dependent, to store user settings, downloaded avatars and crash logs.
 
 | OS      | PATH                                                                                             |
