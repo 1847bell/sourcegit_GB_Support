@@ -156,6 +156,12 @@ For **Linux** users:
 * Maybe you need to set environment variable `AVALONIA_SCREEN_SCALE_FACTORS`. See https://github.com/AvaloniaUI/Avalonia/wiki/Configuring-X11-per-monitor-DPI.
 * If you can NOT type accented characters, such as `ê`, `ó`, try to set the environment variable `AVALONIA_IM_MODULE` to `none`.
 
+## Text encoding
+
+Enable **Preferences → Git → Detect text encoding in diffs and the merge conflict editor** to show encoding selectors in both toolbars. Both selectors offer the same encodings, including UTF-8, GB18030, GBK, Big5 and Shift-JIS. **Auto** also displays the encoding actually detected; select an encoding manually if the text is garbled.
+
+In the merge conflict editor, switching encoding re-decodes all three panes from the original file bytes without discarding conflict resolution choices. **Save and Stage** writes the resolved file using the selected encoding, or the detected encoding in Auto mode. UTF-8 output preserves whether the original file had a UTF-8 BOM.
+
 ## Commandline arguments
 
 Users can also launcher `SourceGit` from commandline. Usage:

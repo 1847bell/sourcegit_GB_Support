@@ -79,6 +79,27 @@ namespace SourceGit.ViewModels
             get => _conflictRegions;
         }
 
+        public Models.TextEncoding SelectedEncoding
+        {
+            get => _selectedEncoding;
+            set
+            {
+                if (value == null || value == _selectedEncoding)
+                    return;
+
+                if (LoadContent(value))
+                    SetProperty(ref _selectedEncoding, value);
+                else
+                    OnPropertyChanged(nameof(SelectedEncoding));
+            }
+        }
+
+        public string UsedEncoding
+        {
+            get => _usedEncoding;
+            private set => SetProperty(ref _usedEncoding, value);
+        }
+
         public MergeConflictEditor(Repository repo, Models.Commit head, string filePath)
         {
             _repo = repo;
@@ -95,35 +116,10 @@ namespace SourceGit.ViewModels
             };
 
             var workingCopyPath = Path.Combine(_repo.FullPath, _filePath);
-            var workingCopyContent = string.Empty;
             if (File.Exists(workingCopyPath))
-            {
-                var bytes = File.ReadAllBytes(workingCopyPath);
-                if (Preferences.Instance.EnableEncodingDetection)
-                {
-                    var detector = new Models.EncodingDetector();
-                    detector.Feed(bytes);
-                    _encoding = detector.GetResult().Decoder;
-                }
+                _originalBytes = File.ReadAllBytes(workingCopyPath);
 
-                // Keep BOM detection for Unicode files even when a legacy encoding was guessed.
-                using var reader = new StreamReader(new MemoryStream(bytes, false), _encoding, true);
-                workingCopyContent = reader.ReadToEnd();
-                _encoding = reader.CurrentEncoding;
-
-                // Preserve the original UTF-8 BOM instead of adding one to BOM-less files.
-                if (_encoding.CodePage == Encoding.UTF8.CodePage)
-                    _encoding = new UTF8Encoding(bytes.AsSpan().StartsWith(Encoding.UTF8.Preamble));
-            }
-
-            if (workingCopyContent.IndexOf('\0', StringComparison.Ordinal) >= 0)
-            {
-                _error = "Binary file is not supported.";
-                return;
-            }
-
-            ParseOriginalContent(workingCopyContent);
-            RefreshDisplayData();
+            LoadContent(_selectedEncoding);
         }
 
         public Models.ConflictLineState GetLineState(int line)
@@ -238,10 +234,57 @@ namespace SourceGit.ViewModels
             Error = string.Empty;
         }
 
+        private bool LoadContent(Models.TextEncoding selectedEncoding)
+        {
+            var encoding = selectedEncoding.Decoder;
+            if (selectedEncoding.IsAuto && Preferences.Instance.EnableEncodingDetection)
+            {
+                var detector = new Models.EncodingDetector();
+                detector.Feed(_originalBytes);
+                encoding = detector.GetResult().Decoder;
+            }
+
+            using var reader = new StreamReader(new MemoryStream(_originalBytes, false), encoding, selectedEncoding.IsAuto);
+            var content = reader.ReadToEnd();
+            encoding = reader.CurrentEncoding;
+
+            if (content.IndexOf('\0', StringComparison.Ordinal) >= 0)
+            {
+                Error = "Binary file is not supported.";
+                return false;
+            }
+
+            // Preserve the original UTF-8 BOM instead of adding one to BOM-less files.
+            if (encoding.CodePage == Encoding.UTF8.CodePage)
+                encoding = new UTF8Encoding(_originalBytes.AsSpan().StartsWith(Encoding.UTF8.Preamble));
+
+            var previousRegions = _conflictRegions;
+            ParseOriginalContent(content);
+
+            // Changing an ASCII-compatible encoding does not change conflict marker positions.
+            for (var i = 0; i < _conflictRegions.Count && i < previousRegions.Count; i++)
+            {
+                var current = _conflictRegions[i];
+                var previous = previousRegions[i];
+                if (current.StartLineInOriginal == previous.StartLineInOriginal &&
+                    current.EndLineInOriginal == previous.EndLineInOriginal)
+                {
+                    current.IsResolved = previous.IsResolved;
+                    current.ResolutionType = previous.ResolutionType;
+                }
+            }
+
+            _encoding = encoding;
+            UsedEncoding = Models.TextEncoding.Find(encoding.CodePage)?.Name ?? encoding.WebName;
+            Error = string.Empty;
+            RefreshDisplayData();
+            return true;
+        }
+
         private void ParseOriginalContent(string content)
         {
             _originalContent = content;
-            _conflictRegions.Clear();
+            _conflictRegions = [];
 
             if (string.IsNullOrEmpty(content))
                 return;
@@ -487,7 +530,10 @@ namespace SourceGit.ViewModels
 
         private readonly Repository _repo;
         private readonly string _filePath;
-        private readonly Encoding _encoding = new UTF8Encoding(false);
+        private readonly byte[] _originalBytes = [];
+        private Encoding _encoding = new UTF8Encoding(false);
+        private Models.TextEncoding _selectedEncoding = Models.TextEncoding.Auto;
+        private string _usedEncoding = string.Empty;
         private string _originalContent = string.Empty;
         private int _unsolvedCount = 0;
         private int _maxLineNumber = 0;

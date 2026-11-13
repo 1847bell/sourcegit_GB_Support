@@ -37,7 +37,7 @@
 
     <!-- Toolbar -->
     <Border Grid.Row="1" Padding="8,0" Background="{DynamicResource Brush.ToolBar}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Brush.Border2}">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
         <Path Grid.Column="0" Width="14" Height="14" Data="{StaticResource Icons.File}"/>
 
         <TextBlock Grid.Column="1"
@@ -70,6 +70,39 @@
                    Margin="8,0,0,0"
                    Text="{Binding UnsolvedCount, Converter={x:Static c:IntConverters.ToUnsolvedDesc}, Mode=OneWay}"
                    VerticalAlignment="Center"/>
+
+        <StackPanel Grid.Column="5"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Margin="8,0,0,0"
+                    Spacing="4"
+                    IsVisible="{Binding Source={x:Static vm:Preferences.Instance}, Path=EnableEncodingDetection, Mode=OneWay}">
+          <ComboBox x:Name="EncodingSelector"
+                    Height="22"
+                    MinHeight="22"
+                    Padding="6,0"
+                    FontSize="11"
+                    VerticalAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    ItemsSource="{Binding Source={x:Static m:TextEncoding.Supported}}"
+                    SelectedItem="{Binding SelectedEncoding, Mode=TwoWay}"
+                    ToolTip.Tip="{DynamicResource Text.Diff.PreviewEncoding}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="m:TextEncoding">
+                <Grid>
+                  <TextBlock Text="{DynamicResource Text.Diff.PreviewEncoding.Auto}" IsVisible="{Binding IsAuto}"/>
+                  <TextBlock Text="{Binding Name}" IsVisible="{Binding IsAuto, Converter={x:Static BoolConverters.Not}}"/>
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock FontSize="11"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource Brush.FG2}"
+                     Text="{Binding UsedEncoding, Mode=OneWay, StringFormat=({0})}"
+                     IsVisible="{Binding SelectedEncoding.IsAuto, Mode=OneWay}"/>
+        </StackPanel>
       </Grid>
     </Border>
 
