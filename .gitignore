@@ -37,15 +37,8 @@ build/scripts/.release-env
 # Flatpak
 !build/resources/flatpak
 
-build/resources/
-build/SourceGit/
-build/SourceGit.app/
-build/*.zip
-build/*.tar.gz
-build/*.deb
-build/*.rpm
-build/*.AppImage
 SourceGit.app/
 build.command
 src/Properties/launchSettings.json
 *.lscache
+build/
