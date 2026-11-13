@@ -130,7 +130,7 @@ namespace SourceGit.ViewModels
                     return;
                 }
 
-                if (ctx.IsSideBySide() != pref.UseSideBySideDiff)
+                if (ctx.IsSideBySide() != pref.UseSideBySideDiff && !ctx.Data.IsNewOrDeletedFile)
                     Content = ctx.SwitchMode();
             }
             else if (Content is Models.NoOrEOLChange)
@@ -216,7 +216,7 @@ namespace SourceGit.ViewModels
                         IsTextDiff = true;
                         IsIgnoreWhitespaceVisible = true;
 
-                        if (Preferences.Instance.UseSideBySideDiff)
+                        if (Preferences.Instance.UseSideBySideDiff && !cur.IsNewOrDeletedFile)
                             Content = new TwoSideTextDiff(_option, cur, _content as TextDiffContext);
                         else
                             Content = new CombinedTextDiff(_option, cur, _content as TextDiffContext);
@@ -284,7 +284,7 @@ namespace SourceGit.ViewModels
                 imgDiff.Old = oldImage.Bitmap;
                 imgDiff.OldFileSize = oldImage.Size;
 
-                var newImage = await ImageSource.FromRevisionAsync(_repo, string.Empty, oldPath, imgDecoder).ConfigureAwait(false);
+                var newImage = await ImageSource.FromRevisionAsync(_repo, string.Empty, _option.Path, imgDecoder).ConfigureAwait(false);
                 imgDiff.New = newImage.Bitmap;
                 imgDiff.NewFileSize = newImage.Size;
             }
